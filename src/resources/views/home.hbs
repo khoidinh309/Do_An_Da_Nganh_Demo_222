@@ -1,0 +1,155 @@
+<div class="button-wrapper">
+    <div class="toggle-wrapper">
+        <h2 style="padding: 0px 20px">Đèn</h2>
+        <label class="toggle light-btn">
+            <input type="checkbox" class="toggle-input" id="led-checkbox" />
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+
+    <div class="toggle-wrapper">
+        <h2 style="padding: 0px 20px">Quạt</h2>
+        <label class="toggle light-btn">
+            <input type="checkbox" class="toggle-input" id="fan-checkbox" />
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
+</div>
+
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Nhiệt độ</h1>
+    </div>
+    <div class="chart-container">
+        <canvas id="line-chart-temp"></canvas>
+    </div>
+</div>
+
+<div class="dashboard">
+    <div class="dashboard-header">
+        <h1>Độ ẩm</h1>
+    </div>
+    <div class="chart-container">
+        <canvas id="line-chart-humi"></canvas>
+    </div>
+</div>
+
+<form method="POST" name="toggle-form"></form>
+
+<script>
+    // select the checkboxes
+    const ledCheckbox = document.querySelector('#led-checkbox');
+    const fanCheckbox = document.querySelector('#fan-checkbox');
+    const toggleForm = document.forms["toggle-form"];
+
+    // set the checked attribute based on the data
+    let statusData = {{{jsonData}}}
+    console.log(statusData)
+    ledCheckbox.checked = statusData.led === '1';
+    fanCheckbox.checked = !(statusData.fan === '0');
+
+    ledCheckbox.addEventListener('change', function(event) {
+        event.stopPropagation();
+        const value = this.checked ? '1' : '0';
+        toggleForm.action = '/toggle/led/' + value;
+        toggleForm.submit();
+    });
+
+    fanCheckbox.addEventListener('change', function(event) {
+        event.stopPropagation();
+        const value = this.checked ? '100' : '0';
+        toggleForm.action = '/toggle/fan/' + value;
+        toggleForm.submit();
+    });
+
+    // Get the canvas element
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let dataChunk = {{{jsonData}}}
+    const tempData = dataChunk.temp.reverse();
+    // Get the canvas element
+    const ctx = document.getElementById('line-chart-temp').getContext('2d');
+
+    const createdTempTimeArray = tempData.map((temp) => temp.created_at);
+    const readableTempTimeArray = createdTempTimeArray.map((timestamp) => {
+        const date = new Date(timestamp);
+        return date.toLocaleString();
+    });
+
+    // Create the line chart
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: readableTempTimeArray,
+            datasets: [
+                {
+                    label: 'Nhiệt độ',
+                    data: tempData.map(temp => temp.value),
+                    borderColor: 'blue',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 5,
+                    pointBackgroundColor: 'blue',
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                yAxes: [
+                    {
+                        ticks: {
+                            beginAtZero: true,
+                            stepSize: 500,
+                        },
+                    },
+                ],
+            },
+        },
+    });
+</script>
+
+<script>
+    const humiData = dataChunk.humi.reverse();
+    // Get the canvas element
+    const ctx1 = document.getElementById('line-chart-humi').getContext('2d');
+    const createdHumiTimeArray = humiData.map((temp) => temp.created_at);
+    const readableHumiTimeArray = createdHumiTimeArray.map((timestamp) => {
+        const date = new Date(timestamp);
+        return date.toLocaleString();
+    });
+    // Create the line chart
+    const chart1 = new Chart(ctx1, {
+        type: 'line',
+        data: {
+            labels: readableHumiTimeArray,
+            datasets: [
+                {
+                    label: 'Độ ẩm',
+                    data: humiData.map((temp) => temp.value),
+                    borderColor: 'blue',
+                    backgroundColor: 'transparent',
+                    borderWidth: 2,
+                    pointRadius: 5,
+                    pointBackgroundColor: 'blue',
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                yAxes: [
+                    {
+                        ticks: {
+                            beginAtZero: true,
+                            stepSize: 500,
+                        },
+                    },
+                ],
+            },
+        },
+    });
+</script>

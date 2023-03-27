@@ -14,6 +14,14 @@
             <span class="toggle-slider"></span>
         </label>
     </div>
+
+    <div class="toggle-wrapper">
+        <h2 style="padding: 0px 20px">Lock</h2>
+        <label class="toggle lock-btn">
+            <input type="checkbox" class="toggle-input" id="lock-checkbox" />
+            <span class="toggle-slider"></span>
+        </label>
+    </div>
 </div>
 
 <div class="dashboard">
@@ -34,12 +42,31 @@
     </div>
 </div>
 
+<div id="myModal" class="modal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Modal title</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Phát hiện có người lạ</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="confirm-btn">Xác nhận</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <form method="POST" name="toggle-form"></form>
 
 <script>
     // select the checkboxes
     const ledCheckbox = document.querySelector('#led-checkbox');
     const fanCheckbox = document.querySelector('#fan-checkbox');
+    const lockCheckbox = document.querySelector('#lock-checkbox');
+    const confirmBtn = document.querySelector('#confirm-btn');
     const toggleForm = document.forms["toggle-form"];
 
     // set the checked attribute based on the data
@@ -47,6 +74,7 @@
     console.log(statusData)
     ledCheckbox.checked = statusData.led === '1';
     fanCheckbox.checked = !(statusData.fan === '0');
+    lockCheckbox.checked = statusData.lock === '1'
 
     ledCheckbox.addEventListener('change', function(event) {
         event.stopPropagation();
@@ -61,6 +89,21 @@
         toggleForm.action = '/toggle/fan/' + value;
         toggleForm.submit();
     });
+
+    lockCheckbox.addEventListener('change', function(event) {
+        event.stopPropagation();
+        const value = this.checked ? '1' : '0';
+        toggleForm.action = '/toggle/lock/' + value;
+        toggleForm.submit();
+    });
+
+    $('#confirm-btn').click((event) => {
+        event.stopPropagation();
+        const value = '0';
+        toggleForm.action = '/toggle/alarm/' + value;
+        toggleForm.submit();
+    });
+
 
     // Get the canvas element
 </script>
@@ -151,5 +194,36 @@
                 ],
             },
         },
+    });
+</script>
+
+<script>
+    $(document).ready(() => {
+        if ($('#lock-checkbox').prop('checked')) {
+            // Start checking for people every second
+            setInterval(() => {
+                console.log('fetching data');
+                // Make an AJAX request to fetch the sensor data
+                $.ajax({
+                    url: '/detection',
+                    method: 'GET',
+                    dataType: 'json',
+                    success: (data) => {
+                        if (data.value === '1') {
+                            $('#myModal').addClass('d-block');
+                            $('#myModal').removeClass('d-none');
+                        } else {
+                            $('#myModal').removeClass('d-block');
+                            $('#myModal').addClass('d-none');
+                        }
+                    },
+                    error: (xhr, status, error) => {
+                        console.log('Error fetching sensor data:', error);
+                    },
+                });
+            }, 1000); // Check every second
+        } else {
+            clearInterval();
+        }
     });
 </script>

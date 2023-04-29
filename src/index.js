@@ -98,9 +98,10 @@ client.on('message', function (topic, message) {
         feed = 'lock';
     } else if (topic.endsWith('temp')) {
         feed = 'temp';
-        updateIncomingData(topic, message);
     } else if (topic.endsWith('humi')) {
         feed = 'humi';
+    } else if (topic.endsWith('alarm')) {
+        feed = 'alarm';
     }
 
     // Send the data to all connected WebSocket clients
@@ -109,6 +110,8 @@ client.on('message', function (topic, message) {
             client.send(JSON.stringify({ feed: feed, value: data.value }));
         }
     });
+
+    updateIncomingData(topic, message);
 });
 
 app.listen(port, () => {

@@ -1,12 +1,18 @@
-const mongoose = require('mongoose');
+const mysql = require('mysql2/promise');
 
-async function connect() {
+async function connectToDB() {
     try {
-        await mongoose.connect('mongodb://127.0.0.1:27017/smart_home_project');
-        console.log('connect sucessfully');
+        const connection = await mysql.createConnection({
+            host: 'localhost',
+            user: 'root',
+            password: 'khoikhoi',
+            database: 'smartHome',
+        });
+        console.log('Connected to MySQL database!');
+        return connection;
     } catch (error) {
-        console.log('error connecting');
+        console.error('Error connecting to database: ', error);
     }
 }
 
-module.exports = { connect };
+module.exports = connectToDB;

@@ -110,11 +110,11 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     let dataChunk = {{{jsonData}}}
-    const tempData = dataChunk.temp.reverse();
+    const tempData = dataChunk.temp;
     // Get the canvas element
     const ctx = document.getElementById('line-chart-temp').getContext('2d');
 
-    const createdTempTimeArray = tempData.map((temp) => temp.created_at);
+    const createdTempTimeArray = tempData.map((temp) => temp.timestamp);
     const readableTempTimeArray = createdTempTimeArray.map((timestamp) => {
         const date = new Date(timestamp);
         return date.toLocaleString();
@@ -128,7 +128,7 @@
             datasets: [
                 {
                     label: 'Nhiệt độ',
-                    data: tempData.map(temp => temp.value),
+                    data: tempData.map(temp => temp.temperature),
                     borderColor: 'blue',
                     backgroundColor: 'transparent',
                     borderWidth: 2,
@@ -155,10 +155,10 @@
 </script>
 
 <script>
-    const humiData = dataChunk.humi.reverse();
+    const humiData = dataChunk.humi;
     // Get the canvas element
     const ctx1 = document.getElementById('line-chart-humi').getContext('2d');
-    const createdHumiTimeArray = humiData.map((temp) => temp.created_at);
+    const createdHumiTimeArray = humiData.map((temp) => temp.timestamp);
     const readableHumiTimeArray = createdHumiTimeArray.map((timestamp) => {
         const date = new Date(timestamp);
         return date.toLocaleString();
@@ -171,7 +171,7 @@
             datasets: [
                 {
                     label: 'Độ ẩm',
-                    data: humiData.map((temp) => temp.value),
+                    data: humiData.map((temp) => temp.humidity),
                     borderColor: 'blue',
                     backgroundColor: 'transparent',
                     borderWidth: 2,

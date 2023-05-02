@@ -1,31 +1,33 @@
-const path = require('path');
 const express = require('express');
 const morgan = require('morgan');
-const http = require('http');
-const WebSocket = require('ws');
-var methodOverride = require('method-override');
-const route = require('./routes');
 const feedInfo = require('./app/databaseQueries/utils/aoiClient');
-const updateDataFunction = require('./app/databaseQueries/updateAllData');
+const { Server } = require('socket.io');
+const updateAllDataFunction = require('./app/databaseQueries/updateAllData');
 const updateIncomingData = require('./app/databaseQueries/updateData');
-
+const cors = require('cors');
+const initData = require('./utils/getLastestData');
+const fs = require('fs');
 const app = express();
-const port = 8000;
-const server = http.createServer(app);
 
-// Set up WebSocket server
-const wss = new WebSocket.Server({ server });
+// const server = http.createServer(app);
 
-app.use(
-    express.urlencoded({
-        extended: true,
-    }),
+// app.use(cors());
+
+const server = require('https').createServer(
+    {
+        key: fs.readFileSync('C:/Users/Admin/key.pem', 'utf8'),
+        cert: fs.readFileSync('C:/Users/Admin/cert.pem', 'utf8'),
+    },
+    app,
 );
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
 
-app.use(morgan('combined'));
-app.use(methodOverride('_method'));
+const io = new Server(server, {
+    cors: {
+        origin: 'https://127.0.0.1:5173/',
+        methods: ['GET', 'POST'],
+    },
+});
+// Set up WebSocket server
 
 // set up connection to adafruit server
 
@@ -43,77 +45,66 @@ adaClient.on('connect', function () {
 });
 
 // WebSocket connection listener
-wss.on('connection', function connection(ws) {
-    console.log('WebSocket client connected');
+let initFeedData = null;
+initData().then((data) => {
+    initFeedData = data;
+});
 
-    feedPaths.forEach((path) => {
-        adaClient.get(path, (err, message) => {
-            if (!err) {
-                const data = JSON.parse(message);
-                ws.send(
-                    JSON.stringify({
-                        topic: path,
-                        value: data.value,
-                        timestamp: data.created_at,
-                    }),
-                );
-            }
-        });
-    });
+io.on('connection', (ws) => {
+    console.log('WebSocket client connected');
+    ws.emit('init-data', initFeedData);
 
     // When a WebSocket client sends a message to change the LED or Fan state
-    ws.on('message', function incoming(message) {
-        console.log(`WebSocket received message: ${message}`);
-        const data = JSON.parse(message);
+    ws.on('toggle-message', function incoming(message) {
+        console.log(message);
+        const data = message;
 
         // Publish the message to the corresponding feed on Adafruit server
         if (data.feed === 'led') {
             adaClient.publish(`${AIO_USERNAME}/feeds/led`, data.value.toString());
         } else if (data.feed === 'fan') {
             adaClient.publish(`${AIO_USERNAME}/feeds/fan`, data.value.toString());
+        } else {
+            adaClient.publish(`${AIO_USERNAME}/feeds/lock`, data.value.toString());
         }
     });
 
-    updateDataFunction.updateAllHumiData();
-    updateDataFunction.updateAllTempData();
-    updateDataFunction.updateAllDetectData();
+    adaClient.on('message', function (topic, message) {
+        console.log(`MQTT message received: ${message.toString()}`);
 
+        // Parse the message and determine which feed it belongs to
+        const data = JSON.parse(message.toString());
+        console.log(data);
+        let feed;
+        if (topic.endsWith('led/json')) {
+            feed = 'led';
+        } else if (topic.endsWith('fan/json')) {
+            feed = 'fan';
+        } else if (topic.endsWith('lock/json')) {
+            feed = 'lock';
+        } else if (topic.endsWith('temp/json')) {
+            feed = 'temp';
+        } else if (topic.endsWith('humi/json')) {
+            feed = 'humi';
+        } else if (topic.endsWith('alarm/json')) {
+            feed = 'alarm';
+        }
+
+        // Send the data to all connected WebSocket clients
+        ws.emit('change-data', { feed: feed, value: data.data.value });
+
+        if (['temp', 'humi', 'alarm'].includes(feed)) {
+            updateIncomingData(topic, data);
+        }
+    });
+
+    updateAllDataFunction();
     // When a WebSocket client disconnects
     ws.on('close', function close() {
         console.log('WebSocket client disconnected');
     });
 });
 
-client.on('message', function (topic, message) {
-    console.log(`MQTT message received: ${message.toString()}`);
-
-    // Parse the message and determine which feed it belongs to
-    const data = JSON.parse(message.toString());
-    let feed;
-    if (topic.endsWith('led')) {
-        feed = 'led';
-    } else if (topic.endsWith('fan')) {
-        feed = 'fan';
-    } else if (topic.endsWith('lock')) {
-        feed = 'lock';
-    } else if (topic.endsWith('temp')) {
-        feed = 'temp';
-    } else if (topic.endsWith('humi')) {
-        feed = 'humi';
-    } else if (topic.endsWith('alarm')) {
-        feed = 'alarm';
-    }
-
-    // Send the data to all connected WebSocket clients
-    wss.clients.forEach(function each(client) {
-        if (client.readyState === WebSocket.OPEN) {
-            client.send(JSON.stringify({ feed: feed, value: data.value }));
-        }
-    });
-
-    updateIncomingData(topic, message);
-});
-
-app.listen(port, () => {
-    console.log(`App listening on port ${port}`);
+server.listen(3001, () => {
+    console.log('Server listening on port 3001');
 });

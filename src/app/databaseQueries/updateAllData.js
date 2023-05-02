@@ -5,67 +5,47 @@ const getDataFromFeed = require('./utils/getDataFromFeed');
 const compare2Date = require('./utils/compare2Date');
 const insertDataToTable = require('./utils/insertDataToTable');
 
-const updateAllTempData = async function () {
-    const connection = connectToDB();
+const updateAllData = async function () {
+    const feedInfoObject = [
+        {
+            tableName: 'tempdata',
+            url: feedInfo.tempUrl,
+            sensorID: 1,
+            column: 'temperature',
+        },
+        {
+            tableName: 'humidata',
+            url: feedInfo.humiUrl,
+            sensorID: 2,
+            column: 'humidity',
+        },
+        {
+            tableName: 'detectiondata',
+            url: feedInfo.alarmUrl,
+            sensorID: 3,
+            column: '',
+        },
+    ];
+    const connection = await connectToDB();
 
-    try {
-        const latestTime = getLatestTimestamp(connection, 'tempdata');
-        const data = getDataFromFeed(feedInfo.tempUrl, feedInfo.headers);
+    for (const element of feedInfoObject) {
+        try {
+            const latestTime = await getLatestTimestamp(connection, element.tableName);
+            const data = await getDataFromFeed(element.url, feedInfo.headers);
 
-        for (let i = 0; i < data.length; i++) {
-            if (compare2Date(latestTime, data[i].created_at)) {
-                await insertDataToTable(connection, 'tempdata', 'temperature', 1, data[i]);
-            } else {
-                break;
+            for (let i = 0; i < data.length; i++) {
+                if (compare2Date(latestTime, data[i].created_at)) {
+                    await insertDataToTable(connection, element.tableName, element.column, element.sensorID, data[i]);
+                } else {
+                    break;
+                }
             }
+        } catch (e) {
+            console.log(e);
         }
-    } catch (e) {
-        console.log(e);
-    } finally {
-        connection.end();
     }
+
+    connection.end();
 };
 
-const updateAllHumiData = async function () {
-    const connection = connectToDB();
-
-    try {
-        const latestTime = getLatestTimestamp(connection, 'humidata');
-        const data = getDataFromFeed(feedInfo.tempUrl, feedInfo.headers);
-
-        for (let i = 0; i < data.length; i++) {
-            if (compare2Date(latestTime, data[i].created_at)) {
-                await insertDataToTable(connection, 'humidata', 'humidity', 2, data[i]);
-            } else {
-                break;
-            }
-        }
-    } catch (e) {
-        console.log(e);
-    } finally {
-        connection.end();
-    }
-};
-
-const updateAllDetectData = async function () {
-    const connection = connectToDB();
-
-    try {
-        const latestTime = getLatestTimestamp(connection, 'humidata');
-        const data = getDataFromFeed(feedInfo.alarmUrl, feedInfo.headers);
-
-        for (let i = 0; i < data.length; i++) {
-            if (compare2Date(latestTime, data[i].created_at)) {
-                await insertDataToTable(connection, 'humidata', '', 3, data[i]);
-            } else {
-                break;
-            }
-        }
-    } catch (e) {
-        console.log(e);
-    } finally {
-        connection.end();
-    }
-};
-
-module.exports = { updateAllTempData, updateAllHumiData, updateAllDetectData };
+module.exports = updateAllData;

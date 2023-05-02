@@ -1,44 +1,37 @@
 const connectToDB = require('../../config/db');
-const convertDateToMySqlDate = require('./utils/convertDate');
+const insertDataToTable = require('./utils/insertDataToTable');
 
-const updateIncomingData = async function (topic, message) {
-    const data = JSON.parse(message.toString());
+const updateIncomingData = async function (topic, data) {
+    const mappingFeed = new Map();
 
-    if (data.key == 'temp') {
-        const connection = connectToDB();
-        const query = 'insert into tempdata(temperature, timestamp, sensorID) values(?, ?, ?)';
-        const values = [parseFloat(data.value), convertDateToMySqlDate(data.created_at), 1];
-        try {
-            const [rows, fields] = await connection.execute(query, values);
-        } catch (e) {
-            console.log(e);
-        } finally {
-            connection.end();
-        }
-    }
-    if (data.key == 'humi') {
-        const connection = connectToDB();
-        const query = 'insert into humidata(humidity, timestamp, sensorID) values(?, ?, ?)';
-        const values = [parseFloat(data.value), convertDateToMySqlDate(data.created_at), 2];
-        try {
-            const [rows, fields] = await connection.execute(query, values);
-        } catch (e) {
-            console.log(e);
-        } finally {
-            connection.end();
-        }
-    }
-    if (data.key == 'alarm') {
-        const connection = connectToDB();
-        const query = 'insert into detectiondata(timestamp, sensorID) values(?, ?)';
-        const values = [convertDateToMySqlDate(data.created_at), 3];
-        try {
-            const [rows, fields] = await connection.execute(query, values);
-        } catch (e) {
-            console.log(e);
-        } finally {
-            connection.end();
-        }
+    mappingFeed.set('temp', {
+        tableName: 'tempdata',
+        column: 'temperature',
+        sensorID: 1,
+    });
+
+    mappingFeed.set('humi', {
+        tableName: 'humidata',
+        column: 'humidity',
+        sensorID: 2,
+    });
+
+    mappingFeed.set('alarm', {
+        tableName: 'detectiondata',
+        column: '',
+        sensorID: 3,
+    });
+
+    const feedData = mappingFeed.get(data.key);
+
+    const connection = await connectToDB();
+
+    try {
+        await insertDataToTable(connection, feedData.tableName, feedData.column, feedData.sensorID, data.data);
+    } catch (e) {
+        console.log(e);
+    } finally {
+        connection.end();
     }
 };
 

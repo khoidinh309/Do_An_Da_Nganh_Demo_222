@@ -1,5 +1,6 @@
 const express = require('express');
 const morgan = require('morgan');
+const moment = require('moment-timezone');
 const feedInfo = require('./app/databaseQueries/utils/aoiClient');
 const { Server } = require('socket.io');
 const updateAllDataFunction = require('./app/databaseQueries/updateAllData');
@@ -53,6 +54,30 @@ initData().then((data) => {
 io.on('connection', (ws) => {
     console.log('WebSocket client connected');
     ws.emit('init-data', initFeedData);
+    let manageDeviceStatus = { led: parseInt(initFeedData[0].data), fan: parseInt(initFeedData[1].data) };
+    let turnOnTime = '18:00';
+    let turnOfTime = '6:00';
+
+    let timeInterval = setInterval(checkStartAlarm, 60000); // Check every minute
+    console.log(manageDeviceStatus);
+
+    function checkStartAlarm() {
+        const currentTime = new Date();
+        const currentHours = currentTime.getHours();
+        const currentMinutes = currentTime.getMinutes();
+        const [alarmOnHours, alarmOnMinutes] = turnOnTime.split(':');
+        const [alarmOffHours, alarmOffMinutes] = turnOfTime.split(':');
+
+        console.log(currentHours, currentMinutes);
+
+        if (currentHours === Number(alarmOnHours) && currentMinutes === Number(alarmOnMinutes)) {
+            adaClient.publish(`${AIO_USERNAME}/feeds/led`, '1');
+        }
+
+        if (currentHours === Number(alarmOffHours) && currentMinutes === Number(alarmOffMinutes)) {
+            adaClient.publish(`${AIO_USERNAME}/feeds/led`, '0');
+        }
+    }
 
     // When a WebSocket client sends a message to change the LED or Fan state
     ws.on('toggle-message', function incoming(message) {
@@ -69,6 +94,22 @@ io.on('connection', (ws) => {
         }
     });
 
+    ws.on('set-turn-on-time', (data) => {
+        turnOnTime = data;
+        clearInterval(timeInterval);
+        timeInterval = setInterval(checkStartAlarm, 60000);
+    });
+
+    ws.on('set-turn-off-time', (data) => {
+        turnOfTime = data;
+        clearInterval(timeInterval);
+        timeInterval = setInterval(checkStartAlarm, 60000);
+    });
+
+    ws.on('turn-off-time-interval', (data) => {
+        clearInterval(timeInterval);
+    });
+
     adaClient.on('message', function (topic, message) {
         console.log(`MQTT message received: ${message.toString()}`);
 
@@ -78,14 +119,38 @@ io.on('connection', (ws) => {
         let feed;
         if (topic.endsWith('led/json')) {
             feed = 'led';
+            manageDeviceStatus.led = data.data.value;
         } else if (topic.endsWith('fan/json')) {
             feed = 'fan';
+            manageDeviceStatus.fan = data.data.value;
         } else if (topic.endsWith('lock/json')) {
             feed = 'lock';
         } else if (topic.endsWith('temp/json')) {
             feed = 'temp';
+            if (parseFloat(data.data.value) > 28) {
+                if (manageDeviceStatus.fan !== 100) {
+                    adaClient.publish(`${AIO_USERNAME}/feeds/fan`, '100');
+                }
+            } else if (parseFloat(data.data.value) > 25) {
+                if (manageDeviceStatus.fan < 50) {
+                    adaClient.publish(`${AIO_USERNAME}/feeds/fan`, '50');
+                }
+            } else if (parseFloat(data.data.value) < 18) {
+                if (manageDeviceStatus.fan > 0) {
+                    adaClient.publish(`${AIO_USERNAME}/feeds/fan`, '0');
+                }
+            }
         } else if (topic.endsWith('humi/json')) {
             feed = 'humi';
+            if (parseFloat(data.data.value) < 40) {
+                if (manageDeviceStatus.fan !== 50) {
+                    adaClient.publish(`${AIO_USERNAME}/feeds/fan`, '100');
+                }
+            } else if (parseFloat(data.data.value) > 60) {
+                if (manageDeviceStatus.fan > 0) {
+                    adaClient.publish(`${AIO_USERNAME}/feeds/fan`, '0');
+                }
+            }
         } else if (topic.endsWith('alarm/json')) {
             feed = 'alarm';
         }

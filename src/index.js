@@ -58,8 +58,7 @@ io.on('connection', (ws) => {
     let turnOnTime = '18:00';
     let turnOfTime = '6:00';
 
-    let timeInterval = setInterval(checkStartAlarm, 60000); // Check every minute
-    console.log(manageDeviceStatus);
+    let timeInterval = null;
 
     function checkStartAlarm() {
         const currentTime = new Date();
@@ -96,18 +95,24 @@ io.on('connection', (ws) => {
 
     ws.on('set-turn-on-time', (data) => {
         turnOnTime = data;
-        clearInterval(timeInterval);
+        if (timeInterval !== null) {
+            clearInterval(timeInterval);
+        }
         timeInterval = setInterval(checkStartAlarm, 60000);
     });
 
     ws.on('set-turn-off-time', (data) => {
         turnOfTime = data;
-        clearInterval(timeInterval);
+        if (timeInterval !== null) {
+            clearInterval(timeInterval);
+        }
         timeInterval = setInterval(checkStartAlarm, 60000);
     });
 
     ws.on('turn-off-time-interval', (data) => {
-        clearInterval(timeInterval);
+        if (timeInterval !== null) {
+            clearInterval(timeInterval);
+        }
     });
 
     adaClient.on('message', function (topic, message) {
